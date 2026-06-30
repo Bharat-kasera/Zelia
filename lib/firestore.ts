@@ -8,6 +8,7 @@ import {
   orderBy,
   where,
   getDocs,
+  writeBatch,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -78,6 +79,22 @@ export async function updateSubject(
 ) {
   const ref = doc(db, "users", userId, "subjects", subjectId);
   return updateDoc(ref, data);
+}
+
+/**
+ * Atomically reorder subjects using a batch write.
+ * All order updates apply at once — onSnapshot fires only once.
+ */
+export async function batchUpdateSubjectOrder(
+  userId: string,
+  orderedIds: string[]
+) {
+  const batch = writeBatch(db);
+  orderedIds.forEach((subjectId, index) => {
+    const ref = doc(db, "users", userId, "subjects", subjectId);
+    batch.update(ref, { order: index });
+  });
+  return batch.commit();
 }
 
 /**

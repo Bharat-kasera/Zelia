@@ -87,6 +87,7 @@ export default function SubjectDetailPage() {
               userId={user.uid}
               subjectId={subjectId}
               nextOrder={nextOrder}
+              existingLectures={lectures}
             />
           </div>
         </div>
