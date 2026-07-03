@@ -88,7 +88,7 @@ export function SubjectCard({ userId, subject }: SubjectCardProps) {
             </div>
           )}
         </CardContent>
-        <CardFooter className="pt-0">
+        <CardFooter>
           <Button asChild variant="secondary" className="w-full">
             <Link href={`/subject/${subject.id}`}>View Lectures</Link>
           </Button>
