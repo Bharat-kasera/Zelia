@@ -49,7 +49,14 @@ export function AddLectureDialog({
   const filteredSuggestions = useMemo(() => {
     if (!topic.trim()) return uniqueTopics;
     const lower = topic.toLowerCase();
-    return uniqueTopics.filter((t) => t.toLowerCase().includes(lower));
+    const matches = uniqueTopics.filter((t) => t.toLowerCase().includes(lower));
+    
+    // If the only match is exactly what is already typed, hide suggestions
+    if (matches.length === 1 && matches[0] === topic) {
+      return [];
+    }
+    
+    return matches;
   }, [topic, uniqueTopics]);
 
   // Close suggestions when clicking outside

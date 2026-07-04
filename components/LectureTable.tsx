@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Fragment } from "react";
 import { Trash2, CalendarIcon } from "lucide-react";
 import { Timestamp } from "firebase/firestore";
 import { format } from "date-fns";
@@ -170,8 +170,19 @@ export function LectureTable({ userId, lectures }: LectureTableProps) {
                 </TableCell>
               </TableRow>
             ) : (
-              processedLectures.map((lecture) => (
-                <TableRow key={lecture.id}>
+              processedLectures.map((lecture, index) => {
+                const isDifferentTopic =
+                  index > 0 &&
+                  lecture.topic.trim().toLowerCase() !==
+                    processedLectures[index - 1].topic.trim().toLowerCase();
+
+                return (
+                  <TableRow
+                    key={lecture.id}
+                    className={
+                      isDifferentTopic ? "border-t-[3px] border-t-muted-foreground/20" : ""
+                    }
+                  >
                   {/* Lecture Number */}
                   <TableCell className="font-medium">
                     {lecture.lectureNumber}
@@ -271,7 +282,8 @@ export function LectureTable({ userId, lectures }: LectureTableProps) {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))
+                );
+              })
             )}
           </TableBody>
         </Table>
