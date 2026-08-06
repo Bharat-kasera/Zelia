@@ -17,3 +17,11 @@ export interface Lecture {
   order: number;
   createdAt: Date;
 }
+
+export interface Objective {
+  id: string;
+  text: string;
+  done: boolean;
+  order: number;
+  createdAt: Date;
+}

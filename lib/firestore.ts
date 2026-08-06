@@ -207,3 +207,66 @@ export function lecturesBySubjectQuery(userId: string, subjectId: string) {
 export function allLecturesQuery(userId: string) {
   return query(lecturesCol(userId), orderBy("order", "asc"));
 }
+
+// ─── Objective CRUD ─────────────────────────────────────────────────────────
+
+/**
+ * Returns a reference to the user's objectives collection.
+ */
+function objectivesCol(userId: string) {
+  return collection(db, "users", userId, "objectives");
+}
+
+/**
+ * Add a new objective.
+ */
+export async function addObjective(userId: string, text: string, order: number) {
+  return addDoc(objectivesCol(userId), {
+    text,
+    done: false,
+    order,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Update an objective's fields.
+ */
+export async function updateObjective(
+  userId: string,
+  objectiveId: string,
+  data: { text?: string; done?: boolean; order?: number }
+) {
+  const ref = doc(db, "users", userId, "objectives", objectiveId);
+  return updateDoc(ref, data);
+}
+
+/**
+ * Delete an objective.
+ */
+export async function deleteObjective(userId: string, objectiveId: string) {
+  const ref = doc(db, "users", userId, "objectives", objectiveId);
+  return deleteDoc(ref);
+}
+
+/**
+ * Atomically reorder objectives using a batch write.
+ */
+export async function batchUpdateObjectiveOrder(
+  userId: string,
+  orderedIds: string[]
+) {
+  const batch = writeBatch(db);
+  orderedIds.forEach((objectiveId, index) => {
+    const ref = doc(db, "users", userId, "objectives", objectiveId);
+    batch.update(ref, { order: index });
+  });
+  return batch.commit();
+}
+
+/**
+ * Returns a Firestore query for all objectives, ordered by `order`.
+ */
+export function objectivesQuery(userId: string) {
+  return query(objectivesCol(userId), orderBy("order", "asc"));
+}
