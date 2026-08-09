@@ -25,3 +25,10 @@ export interface Objective {
   order: number;
   createdAt: Date;
 }
+
+export interface Rule {
+  id: string;
+  text: string;
+  order: number;
+  createdAt: Date;
+}

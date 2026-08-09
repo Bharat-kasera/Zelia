@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, LogOut, Target } from "lucide-react";
+import { BookOpen, LogOut, Target, ScrollText } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -76,6 +76,17 @@ export function Navbar() {
             >
               <Target className="size-3.5" />
               Objectives
+            </Link>
+            <Link
+              href="/rules"
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted ${
+                pathname === "/rules"
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              <ScrollText className="size-3.5" />
+              Rules
             </Link>
           </nav>
         </div>

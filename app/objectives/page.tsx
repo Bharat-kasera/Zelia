@@ -30,6 +30,13 @@ import { Navbar } from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import type { Objective } from "@/types";
 
 // ─── Sortable Objective Item ────────────────────────────────────────────────
@@ -71,16 +78,16 @@ function ObjectiveItem({
   };
 
   return (
-    <div
+    <li
       ref={setNodeRef}
       style={style}
-      className={`group flex items-center gap-3 rounded-lg border border-border/50 bg-card px-4 py-3 transition-colors hover:bg-muted/30 ${
-        isDragging ? "shadow-lg ring-1 ring-primary/20" : ""
+      className={`group flex items-center gap-3 border-b border-border/30 py-3.5 last:border-0 ${
+        isDragging ? "bg-muted/20" : ""
       }`}
     >
       <button
         type="button"
-        className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/40 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+        className="shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/30 transition-colors hover:text-muted-foreground active:cursor-grabbing"
         {...attributes}
         {...listeners}
       >
@@ -94,10 +101,10 @@ function ObjectiveItem({
       />
 
       <span
-        className={`flex-1 text-sm ${
+        className={`flex-1 text-lg leading-relaxed ${
           objective.done
-            ? "text-muted-foreground line-through"
-            : "text-foreground"
+            ? "text-muted-foreground/50 line-through"
+            : "text-foreground/85"
         }`}
       >
         {objective.text}
@@ -106,13 +113,13 @@ function ObjectiveItem({
       <Button
         variant="ghost"
         size="icon"
-        className="size-7 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
+        className="size-6 shrink-0 text-muted-foreground/40 opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
         onClick={handleDelete}
         disabled={deleting}
       >
-        <Trash2 className="size-3.5" />
+        <Trash2 className="size-3" />
       </Button>
-    </div>
+    </li>
   );
 }
 
@@ -124,6 +131,7 @@ export default function ObjectivesPage() {
 
   const [localObjectives, setLocalObjectives] = useState<Objective[]>([]);
   const syncBlockedUntil = useRef(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
   const [newText, setNewText] = useState("");
   const [adding, setAdding] = useState(false);
 
@@ -182,6 +190,7 @@ export default function ObjectivesPage() {
     await addObjective(user.uid, newText.trim(), nextOrder);
     setNewText("");
     setAdding(false);
+    setDialogOpen(false);
   };
 
   if (authLoading || (user && objectivesLoading)) {
@@ -210,29 +219,7 @@ export default function ObjectivesPage() {
           </p>
         </div>
 
-        {/* Add new objective */}
-        <form onSubmit={handleAdd} className="mb-6 flex gap-2">
-          <Input
-            placeholder="Add a new objective..."
-            value={newText}
-            onChange={(e) => setNewText(e.target.value)}
-            className="flex-1"
-          />
-          <Button type="submit" disabled={adding || !newText.trim()}>
-            <Plus className="mr-1.5 size-4" />
-            Add
-          </Button>
-        </form>
-
-        {/* Objectives list */}
-        {localObjectives.length === 0 ? (
-          <div className="flex min-h-[30vh] flex-col items-center justify-center rounded-xl border border-dashed border-border bg-muted/30 p-8 text-center">
-            <h2 className="mb-2 text-xl font-semibold">No objectives yet</h2>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Add your first objective to start tracking your GATE prep tasks.
-            </p>
-          </div>
-        ) : (
+        {localObjectives.length > 0 ? (
           <DndContext
             sensors={sensors}
             collisionDetection={closestCenter}
@@ -242,7 +229,7 @@ export default function ObjectivesPage() {
               items={localObjectives.map((o) => o.id)}
               strategy={verticalListSortingStrategy}
             >
-              <div className="flex flex-col gap-2">
+              <ol className="list-none pl-0">
                 {localObjectives.map((objective) => (
                   <ObjectiveItem
                     key={objective.id}
@@ -250,11 +237,46 @@ export default function ObjectivesPage() {
                     userId={user.uid}
                   />
                 ))}
-              </div>
+              </ol>
             </SortableContext>
           </DndContext>
+        ) : (
+          <div className="py-16 text-center">
+            <p className="text-sm text-muted-foreground/60">
+              No objectives yet. Tap + to add your first one.
+            </p>
+          </div>
         )}
       </main>
+
+      {/* FAB — fixed bottom right */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogTrigger asChild>
+          <Button
+            size="icon"
+            className="fixed bottom-6 right-6 size-12 rounded-full shadow-lg"
+          >
+            <Plus className="size-5" />
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add Objective</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleAdd} className="flex flex-col gap-4">
+            <Input
+              placeholder="e.g. Complete TOC PYQs"
+              value={newText}
+              onChange={(e) => setNewText(e.target.value)}
+              autoFocus
+              required
+            />
+            <Button type="submit" disabled={adding || !newText.trim()} className="w-full">
+              {adding ? "Adding..." : "Add Objective"}
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

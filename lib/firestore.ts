@@ -270,3 +270,50 @@ export async function batchUpdateObjectiveOrder(
 export function objectivesQuery(userId: string) {
   return query(objectivesCol(userId), orderBy("order", "asc"));
 }
+
+// ─── Rule CRUD ──────────────────────────────────────────────────────────────
+
+/**
+ * Returns a reference to the user's rules collection.
+ */
+function rulesCol(userId: string) {
+  return collection(db, "users", userId, "rules");
+}
+
+/**
+ * Add a new rule.
+ */
+export async function addRule(userId: string, text: string, order: number) {
+  return addDoc(rulesCol(userId), {
+    text,
+    order,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Update a rule's text.
+ */
+export async function updateRule(
+  userId: string,
+  ruleId: string,
+  data: { text?: string; order?: number }
+) {
+  const ref = doc(db, "users", userId, "rules", ruleId);
+  return updateDoc(ref, data);
+}
+
+/**
+ * Delete a rule.
+ */
+export async function deleteRule(userId: string, ruleId: string) {
+  const ref = doc(db, "users", userId, "rules", ruleId);
+  return deleteDoc(ref);
+}
+
+/**
+ * Returns a Firestore query for all rules, ordered by `order`.
+ */
+export function rulesQuery(userId: string) {
+  return query(rulesCol(userId), orderBy("order", "asc"));
+}
