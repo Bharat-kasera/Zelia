@@ -13,7 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { BookOpen, LogOut, Target, ScrollText } from "lucide-react";
+import { BookOpen, LogOut, Target, ScrollText, CalendarDays, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -87,6 +87,28 @@ export function Navbar() {
             >
               <ScrollText className="size-3.5" />
               Rules
+            </Link>
+            <Link
+              href="/plan"
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted ${
+                pathname === "/plan"
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              <CalendarDays className="size-3.5" />
+              Plan
+            </Link>
+            <Link
+              href="/tests"
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors hover:bg-muted ${
+                pathname === "/tests"
+                  ? "text-foreground"
+                  : "text-muted-foreground"
+              }`}
+            >
+              <ClipboardCheck className="size-3.5" />
+              Tests
             </Link>
           </nav>
         </div>

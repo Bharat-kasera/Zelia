@@ -1,16 +1,24 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, CalendarIcon, CheckCircle2, XCircle } from "lucide-react";
+import { format } from "date-fns";
 import Link from "next/link";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubjects } from "@/hooks/useSubjects";
 import { useLectures } from "@/hooks/useLectures";
+import { markSubjectComplete, unmarkSubjectComplete } from "@/lib/firestore";
 import { Navbar } from "@/components/Navbar";
 import { LectureTable } from "@/components/LectureTable";
 import { AddLectureDialog } from "@/components/AddLectureDialog";
 import { Button } from "@/components/ui/button";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 
 export default function SubjectDetailPage() {
   const params = useParams<{ id: string }>();
@@ -30,6 +38,8 @@ export default function SubjectDetailPage() {
     user?.uid,
     subjectId
   );
+
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Loading state
   if (authLoading || (user && (subjectsLoading || lecturesLoading))) {
@@ -66,6 +76,16 @@ export default function SubjectDetailPage() {
   const nextOrder =
     lectures.length > 0 ? lectures[lectures.length - 1].order + 1 : 0;
 
+  const handleDateSelect = async (date: Date | undefined) => {
+    if (!date) return;
+    await markSubjectComplete(user.uid, subjectId, date);
+    setCalendarOpen(false);
+  };
+
+  const handleUnmark = async () => {
+    await unmarkSubjectComplete(user.uid, subjectId);
+  };
+
   return (
     <>
       <Navbar />
@@ -79,16 +99,72 @@ export default function SubjectDetailPage() {
             </Link>
           </Button>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h1 className="text-3xl font-bold tracking-tight">
               {subject.name}
             </h1>
-            <AddLectureDialog
-              userId={user.uid}
-              subjectId={subjectId}
-              nextOrder={nextOrder}
-              existingLectures={lectures}
-            />
+            <div className="flex items-center gap-2">
+              {/* Completion status */}
+              {subject.completedAt ? (
+                <div className="flex items-center gap-2">
+                  <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2 border-green-600/30 bg-green-950/20 text-green-400 hover:bg-green-950/30 hover:text-green-300"
+                      >
+                        <CheckCircle2 className="size-4" />
+                        Completed {format(subject.completedAt, "dd MMM yyyy")}
+                        <CalendarIcon className="size-3.5 text-green-400/60" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={subject.completedAt ?? undefined}
+                        onSelect={handleDateSelect}
+                        disabled={{ after: new Date(2027, 0, 31) }}
+                        autoFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-8 text-muted-foreground/50 hover:text-destructive"
+                    onClick={handleUnmark}
+                    title="Remove completion"
+                  >
+                    <XCircle className="size-4" />
+                  </Button>
+                </div>
+              ) : (
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-2">
+                      <CheckCircle2 className="size-4" />
+                      Mark Complete
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="end">
+                    <Calendar
+                      mode="single"
+                      onSelect={handleDateSelect}
+                      disabled={{ after: new Date(2027, 0, 31) }}
+                      autoFocus
+                    />
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              <AddLectureDialog
+                userId={user.uid}
+                subjectId={subjectId}
+                nextOrder={nextOrder}
+                existingLectures={lectures}
+              />
+            </div>
           </div>
         </div>
 

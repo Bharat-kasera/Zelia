@@ -5,6 +5,13 @@ export interface Subject {
   name: string;
   order: number;
   createdAt: Date;
+  completedAt: Date | null;
+  notesRevisionsDone: string[];
+  cpqRevisionsDone: string[];
+  pyqRevisionsDone: string[];
+  topicwise1Done: boolean;
+  topicwise2Done: boolean;
+  subjectwiseDone: boolean;
 }
 
 export interface Lecture {

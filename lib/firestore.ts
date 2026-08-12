@@ -9,6 +9,8 @@ import {
   where,
   getDocs,
   writeBatch,
+  arrayUnion,
+  arrayRemove,
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
@@ -103,6 +105,100 @@ export async function batchUpdateSubjectOrder(
 export async function deleteSubject(userId: string, subjectId: string) {
   const ref = doc(db, "users", userId, "subjects", subjectId);
   return deleteDoc(ref);
+}
+
+/**
+ * Mark a subject as complete with a given date.
+ * Resets all revision done arrays.
+ */
+export async function markSubjectComplete(
+  userId: string,
+  subjectId: string,
+  completedAt: Date
+) {
+  const ref = doc(db, "users", userId, "subjects", subjectId);
+  return updateDoc(ref, {
+    completedAt: Timestamp.fromDate(completedAt),
+    notesRevisionsDone: [],
+    cpqRevisionsDone: [],
+    pyqRevisionsDone: [],
+    topicwise1Done: false,
+    topicwise2Done: false,
+    subjectwiseDone: false,
+  });
+}
+
+/**
+ * Unmark a subject as complete. Clears completion date and revision arrays.
+ */
+export async function unmarkSubjectComplete(
+  userId: string,
+  subjectId: string
+) {
+  const ref = doc(db, "users", userId, "subjects", subjectId);
+  return updateDoc(ref, {
+    completedAt: null,
+    notesRevisionsDone: [],
+    cpqRevisionsDone: [],
+    pyqRevisionsDone: [],
+    topicwise1Done: false,
+    topicwise2Done: false,
+    subjectwiseDone: false,
+  });
+}
+
+/**
+ * Mark or unmark a specific revision date as done.
+ * Uses arrayUnion/arrayRemove for atomic operations.
+ */
+export async function toggleRevisionDate(
+  userId: string,
+  subjectId: string,
+  field: "notesRevisionsDone" | "cpqRevisionsDone" | "pyqRevisionsDone",
+  dateKey: string,
+  done: boolean
+) {
+  const ref = doc(db, "users", userId, "subjects", subjectId);
+  return updateDoc(ref, {
+    [field]: done ? arrayUnion(dateKey) : arrayRemove(dateKey),
+  });
+}
+
+/**
+ * Toggle a per-subject test's done state.
+ */
+export async function toggleSubjectTest(
+  userId: string,
+  subjectId: string,
+  field: "topicwise1Done" | "topicwise2Done" | "subjectwiseDone",
+  value: boolean
+) {
+  const ref = doc(db, "users", userId, "subjects", subjectId);
+  return updateDoc(ref, { [field]: value });
+}
+
+/**
+ * Get/set full syllabus test tracking at users/{userId}/config/tests.
+ */
+function testConfigRef(userId: string) {
+  return doc(db, "users", userId, "config", "tests");
+}
+
+export async function toggleFullSyllabusTest(
+  userId: string,
+  dateKey: string,
+  done: boolean
+) {
+  const ref = testConfigRef(userId);
+  try {
+    await updateDoc(ref, {
+      fullSyllabusDone: done ? arrayUnion(dateKey) : arrayRemove(dateKey),
+    });
+  } catch {
+    // Document may not exist yet; create it
+    const { setDoc } = await import("firebase/firestore");
+    await setDoc(ref, { fullSyllabusDone: done ? [dateKey] : [] });
+  }
 }
 
 // ─── Lecture CRUD ───────────────────────────────────────────────────────────

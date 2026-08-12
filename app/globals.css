@@ -128,3 +128,30 @@
     @apply font-sans;
   }
 }
+
+/* Revision calendar dots */
+.has-notes-dot > button::after,
+.has-cpq-dot > button::after,
+.has-pyq-dot > button::after {
+  content: "";
+  position: absolute;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 9999px;
+}
+
+.has-notes-dot > button::after {
+  background-color: oklch(0.765 0.177 163.223);
+  left: calc(50% - 8px);
+}
+
+.has-cpq-dot > button::after {
+  background-color: oklch(0.707 0.165 254.624);
+  left: calc(50% - 2.5px);
+}
+
+.has-pyq-dot > button::after {
+  background-color: oklch(0.792 0.157 70.08);
+  left: calc(50% + 3px);
+}

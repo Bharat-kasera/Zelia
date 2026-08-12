@@ -27,6 +27,15 @@ export function useSubjects(userId: string | undefined) {
             name: d.name as string,
             order: d.order as number,
             createdAt: (d.createdAt as Timestamp)?.toDate() ?? new Date(),
+            completedAt: d.completedAt
+              ? (d.completedAt as Timestamp).toDate()
+              : null,
+            notesRevisionsDone: (d.notesRevisionsDone as string[]) ?? [],
+            cpqRevisionsDone: (d.cpqRevisionsDone as string[]) ?? [],
+            pyqRevisionsDone: (d.pyqRevisionsDone as string[]) ?? [],
+            topicwise1Done: (d.topicwise1Done as boolean) ?? false,
+            topicwise2Done: (d.topicwise2Done as boolean) ?? false,
+            subjectwiseDone: (d.subjectwiseDone as boolean) ?? false,
           } satisfies Subject;
         });
         setSubjects(data);
