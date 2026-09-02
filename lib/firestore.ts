@@ -4,6 +4,8 @@ import {
   updateDoc,
   deleteDoc,
   doc,
+  setDoc,
+  getDoc,
   query,
   orderBy,
   where,
@@ -412,4 +414,32 @@ export async function deleteRule(userId: string, ruleId: string) {
  */
 export function rulesQuery(userId: string) {
   return query(rulesCol(userId), orderBy("order", "asc"));
+}
+
+// ─── Study Log CRUD ─────────────────────────────────────────────────────────
+
+/**
+ * Save study time for a specific date. Uses date as document ID (upsert).
+ */
+export async function saveStudyLog(
+  userId: string,
+  dateKey: string,
+  hours: number,
+  minutes: number
+) {
+  const ref = doc(db, "users", userId, "studyLogs", dateKey);
+  return setDoc(ref, {
+    date: dateKey,
+    hours,
+    minutes,
+    createdAt: serverTimestamp(),
+  });
+}
+
+/**
+ * Delete a study log entry.
+ */
+export async function deleteStudyLog(userId: string, dateKey: string) {
+  const ref = doc(db, "users", userId, "studyLogs", dateKey);
+  return deleteDoc(ref);
 }
