@@ -14,7 +14,7 @@ import {
   isAfter,
   parseISO,
 } from "date-fns";
-import { CalendarIcon, Pencil, Trash2 } from "lucide-react";
+import { CalendarIcon, ChevronLeft, ChevronRight, Pencil, Trash2 } from "lucide-react";
 import {
   AreaChart,
   Area,
@@ -29,6 +29,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useStudyLogs } from "@/hooks/useStudyLogs";
 import { saveStudyLog, deleteStudyLog } from "@/lib/firestore";
 import { Navbar } from "@/components/Navbar";
+import { StudyHeatmap } from "@/components/StudyHeatmap";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -77,6 +78,11 @@ export default function TrackerPage() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>("daily");
+  const [chartPage, setChartPage] = useState(0); // 0 = latest, 1 = one page back, etc.
+
+  // Logs display
+  const [visibleCount, setVisibleCount] = useState(10);
+  const LOGS_STEP = 10;
 
   // Edit dialog
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -105,13 +111,43 @@ export default function TrackerPage() {
   const todayKey = format(new Date(), "yyyy-MM-dd");
   const todayLog = logMap.get(todayKey);
 
-  // Chart data
+  // Max hours studied in a single day (all time)
+  const maxStudyMinutes = useMemo(() => {
+    if (logs.length === 0) return 0;
+    return Math.max(...logs.map((l) => l.totalMinutes));
+  }, [logs]);
+
+  // Weekly average per day (current week, Mon–Sun)
+  const weeklyAvgPerDay = useMemo(() => {
+    if (logs.length === 0) return 0;
+    const today = new Date();
+    const weekStart = startOfWeek(today, { weekStartsOn: 1 }); // Monday
+    const weekEnd = endOfWeek(today, { weekStartsOn: 1 });
+    const days = eachDayOfInterval({
+      start: weekStart,
+      end: today > weekEnd ? weekEnd : today,
+    });
+    let totalMins = 0;
+    let daysWithData = 0;
+    for (const day of days) {
+      const key = format(day, "yyyy-MM-dd");
+      const log = logMap.get(key);
+      if (log) {
+        totalMins += log.totalMinutes;
+        daysWithData++;
+      }
+    }
+    // Average over elapsed days in the week (not just days with data)
+    return days.length > 0 ? totalMins / days.length : 0;
+  }, [logs, logMap]);
+
+  // Chart data with pagination
   const chartData = useMemo(() => {
     if (logs.length === 0) return [];
 
     if (viewMode === "daily") {
-      // Last 30 days
-      const end = new Date();
+      // 30 days per page
+      const end = subDays(new Date(), chartPage * 30);
       const start = subDays(end, 29);
       const days = eachDayOfInterval({ start, end });
       return days.map((day) => {
@@ -125,9 +161,9 @@ export default function TrackerPage() {
     }
 
     if (viewMode === "weekly") {
-      // Last 12 weeks
-      const end = new Date();
-      const start = subDays(end, 83); // ~12 weeks
+      // 12 weeks per page
+      const end = subDays(new Date(), chartPage * 84);
+      const start = subDays(end, 83);
       const weeks = eachWeekOfInterval({ start, end });
       return weeks.map((weekStart) => {
         const weekEnd = endOfWeek(weekStart);
@@ -144,7 +180,7 @@ export default function TrackerPage() {
       });
     }
 
-    // Monthly
+    // Monthly — show all months (no pagination needed, usually few)
     const sortedLogs = [...logs].sort((a, b) => a.date.localeCompare(b.date));
     if (sortedLogs.length === 0) return [];
     const firstDate = parseISO(sortedLogs[sortedLogs.length - 1].date); // logs are desc
@@ -168,7 +204,36 @@ export default function TrackerPage() {
       current = new Date(current.getFullYear(), current.getMonth() + 1, 1);
     }
     return months;
-  }, [logs, logMap, viewMode]);
+  }, [logs, logMap, viewMode, chartPage]);
+
+  // Chart date range label
+  const chartRangeLabel = useMemo(() => {
+    if (viewMode === "daily") {
+      const end = subDays(new Date(), chartPage * 30);
+      const start = subDays(end, 29);
+      return `${format(start, "dd MMM")} – ${format(end, "dd MMM yyyy")}`;
+    }
+    if (viewMode === "weekly") {
+      const end = subDays(new Date(), chartPage * 84);
+      const start = subDays(end, 83);
+      return `${format(start, "dd MMM")} – ${format(end, "dd MMM yyyy")}`;
+    }
+    return "All Time";
+  }, [viewMode, chartPage]);
+
+  // Can go further back?
+  const canGoBack = useMemo(() => {
+    if (logs.length === 0 || viewMode === "monthly") return false;
+    const sortedDates = logs.map((l) => l.date).sort();
+    const earliest = parseISO(sortedDates[0]);
+    if (viewMode === "daily") {
+      const pageStart = subDays(new Date(), (chartPage + 1) * 30);
+      return pageStart >= earliest;
+    }
+    // weekly
+    const pageStart = subDays(new Date(), (chartPage + 1) * 84);
+    return pageStart >= earliest;
+  }, [logs, viewMode, chartPage]);
 
   // Average for the chart
   const avgValue = useMemo(() => {
@@ -225,7 +290,7 @@ export default function TrackerPage() {
   return (
     <>
       <Navbar />
-      <main className="mx-auto w-full max-w-4xl px-4 py-8">
+      <main className="mx-auto w-full max-w-5xl px-4 py-8">
         <div className="mb-8 flex flex-col gap-2">
           <h1 className="text-3xl font-bold tracking-tight">Tracker</h1>
           <p className="text-muted-foreground">
@@ -233,13 +298,27 @@ export default function TrackerPage() {
           </p>
         </div>
 
-        {/* Today's highlight */}
-        {todayLog && (
-          <div className="mb-8 rounded-xl border border-border/50 bg-muted/10 p-6">
-            <p className="mb-1 text-sm text-muted-foreground">Today</p>
-            <p className="text-4xl font-bold tracking-tight">
-              {formatDuration(todayLog.totalMinutes)}
-            </p>
+        {/* Stats Cards */}
+        {logs.length > 0 && (
+          <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {/* Max Hours */}
+            <div className="rounded-xl border border-border/50 bg-muted/10 p-5">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                Max in a Day
+              </p>
+              <p className="text-3xl font-bold tracking-tight">
+                {formatDuration(maxStudyMinutes)}
+              </p>
+            </div>
+            {/* Weekly Avg */}
+            <div className="rounded-xl border border-border/50 bg-muted/10 p-5">
+              <p className="mb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+                This Week Avg/Day
+              </p>
+              <p className="text-3xl font-bold tracking-tight">
+                {formatDuration(Math.round(weeklyAvgPerDay))}
+              </p>
+            </div>
           </div>
         )}
 
@@ -317,7 +396,7 @@ export default function TrackerPage() {
                   <button
                     key={mode}
                     type="button"
-                    onClick={() => setViewMode(mode)}
+                    onClick={() => { setViewMode(mode); setChartPage(0); }}
                     className={`rounded-md px-3 py-1 text-xs font-medium capitalize transition-colors ${
                       viewMode === mode
                         ? "bg-primary text-primary-foreground"
@@ -329,6 +408,33 @@ export default function TrackerPage() {
                 ))}
               </div>
             </div>
+
+            {/* Chart navigation */}
+            {viewMode !== "monthly" && (
+              <div className="mb-3 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => setChartPage((p) => p + 1)}
+                  disabled={!canGoBack}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+                >
+                  <ChevronLeft className="size-3.5" />
+                  Older
+                </button>
+                <span className="text-xs text-muted-foreground">
+                  {chartRangeLabel}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setChartPage((p) => Math.max(0, p - 1))}
+                  disabled={chartPage === 0}
+                  className="flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-30 disabled:hover:text-muted-foreground"
+                >
+                  Newer
+                  <ChevronRight className="size-3.5" />
+                </button>
+              </div>
+            )}
 
             <div className="rounded-xl border border-border/50 p-4">
               <ResponsiveContainer width="100%" height={280}>
@@ -395,6 +501,9 @@ export default function TrackerPage() {
           </div>
         )}
 
+        {/* Heatmap */}
+        {logs.length > 0 && <StudyHeatmap logs={logs} />}
+
         {/* Recent Logs */}
         <div>
           <h2 className="mb-4 text-lg font-semibold">Recent Logs</h2>
@@ -404,7 +513,7 @@ export default function TrackerPage() {
             </p>
           ) : (
             <div className="flex flex-col">
-              {logs.slice(0, 30).map((log) => (
+              {logs.slice(0, visibleCount).map((log) => (
                 <div
                   key={log.id}
                   className="group flex items-center gap-4 border-b border-border/20 py-3 last:border-0"
@@ -440,6 +549,15 @@ export default function TrackerPage() {
                   </div>
                 </div>
               ))}
+              {logs.length > visibleCount && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + LOGS_STEP)}
+                  className="mt-3 py-2 text-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Show More ({logs.length - visibleCount} more)
+                </button>
+              )}
             </div>
           )}
         </div>

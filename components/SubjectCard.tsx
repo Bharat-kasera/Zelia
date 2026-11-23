@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useSortable, defaultAnimateLayoutChanges } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import { GripVertical, Trash2 } from "lucide-react";
 import { useLectures } from "@/hooks/useLectures";
+import { deleteSubject } from "@/lib/firestore";
 import type { Subject } from "@/types";
 import {
   Card,
@@ -48,7 +49,7 @@ export function SubjectCard({ userId, subject }: SubjectCardProps) {
     totalLectures === 0 ? 0 : Math.round((doneLectures / totalLectures) * 100);
 
   return (
-    <div ref={setNodeRef} style={style}>
+    <div ref={setNodeRef} style={style} className="group/card">
       <Card
         className={`flex h-full flex-col overflow-hidden border-border/50 bg-gradient-to-b from-card to-muted/20 ${
           isDragging ? "shadow-2xl ring-2 ring-primary/30" : ""
@@ -59,14 +60,28 @@ export function SubjectCard({ userId, subject }: SubjectCardProps) {
             <CardTitle className="line-clamp-2 text-lg leading-tight">
               {subject.name}
             </CardTitle>
-            <button
-              type="button"
-              className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-muted-foreground active:cursor-grabbing"
-              {...attributes}
-              {...listeners}
-            >
-              <GripVertical className="size-4" />
-            </button>
+            <div className="flex items-center gap-0.5">
+              <button
+                type="button"
+                className="shrink-0 rounded p-1 text-muted-foreground/30 opacity-0 transition-all hover:text-destructive group-hover/card:opacity-100"
+                title="Delete subject"
+                onClick={() => {
+                  if (confirm(`Delete "${subject.name}"? This will also delete all its lectures.`)) {
+                    deleteSubject(userId, subject.id);
+                  }
+                }}
+              >
+                <Trash2 className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                className="mt-0.5 shrink-0 cursor-grab touch-none rounded p-0.5 text-muted-foreground/50 transition-colors hover:text-muted-foreground active:cursor-grabbing"
+                {...attributes}
+                {...listeners}
+              >
+                <GripVertical className="size-4" />
+              </button>
+            </div>
           </div>
         </CardHeader>
         <CardContent className="flex-1 pb-4">

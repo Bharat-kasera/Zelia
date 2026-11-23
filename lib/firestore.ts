@@ -6,6 +6,8 @@ import {
   doc,
   setDoc,
   getDoc,
+  getDocFromServer,
+  getDocsFromServer,
   query,
   orderBy,
   where,
@@ -37,20 +39,31 @@ const SEED_SUBJECTS = [
 ];
 
 /**
- * Seeds initial subjects on first login (when user has 0 subjects).
+ * Seeds initial subjects on FIRST-EVER login only.
+ * Skips entirely if ANY subjects already exist in Firestore.
+ * Uses server-only reads to avoid stale cache issues.
  */
 export async function seedSubjects(userId: string) {
-  const snapshot = await getDocs(subjectsCol(userId));
-  if (snapshot.size > 0) return; // Already has subjects, skip
+  try {
+    // Force server read — if subjects already exist, do nothing
+    const snapshot = await getDocsFromServer(subjectsCol(userId));
+    if (snapshot.size > 0) return;
 
-  const promises = SEED_SUBJECTS.map((name, index) =>
-    addDoc(subjectsCol(userId), {
-      name,
-      order: index,
-      createdAt: serverTimestamp(),
-    })
-  );
-  await Promise.all(promises);
+    // No subjects at all — this is a brand new user, seed them
+    const batch = writeBatch(db);
+    SEED_SUBJECTS.forEach((name, index) => {
+      const subjectRef = doc(db, "users", userId, "subjects", `seed_${index}`);
+      batch.set(subjectRef, {
+        name,
+        order: index,
+        createdAt: serverTimestamp(),
+      });
+    });
+    await batch.commit();
+  } catch (error) {
+    // Server unreachable — skip seeding entirely rather than risk duplicates
+    console.warn("seedSubjects: skipped (server unreachable)", error);
+  }
 }
 
 // ─── Subject CRUD ───────────────────────────────────────────────────────────
@@ -102,11 +115,62 @@ export async function batchUpdateSubjectOrder(
 }
 
 /**
- * Delete a subject.
+ * Delete a subject and all its lectures.
  */
 export async function deleteSubject(userId: string, subjectId: string) {
-  const ref = doc(db, "users", userId, "subjects", subjectId);
-  return deleteDoc(ref);
+  // Delete all lectures under this subject first
+  const lecturesSnap = await getDocs(
+    query(collection(db, "users", userId, "lectures"), where("subjectId", "==", subjectId))
+  );
+  const batch = writeBatch(db);
+  lecturesSnap.docs.forEach((d) => batch.delete(d.ref));
+  batch.delete(doc(db, "users", userId, "subjects", subjectId));
+  return batch.commit();
+}
+
+/**
+ * Remove duplicate subjects that have no lectures.
+ * Keeps the subject with lectures when duplicates exist.
+ */
+export async function cleanupDuplicateSubjects(userId: string) {
+  const subjectsSnap = await getDocsFromServer(subjectsCol(userId));
+  const allLecturesSnap = await getDocs(collection(db, "users", userId, "lectures"));
+
+  // Count lectures per subject
+  const lectureCountBySubject = new Map<string, number>();
+  for (const lDoc of allLecturesSnap.docs) {
+    const subId = lDoc.data().subjectId as string;
+    lectureCountBySubject.set(subId, (lectureCountBySubject.get(subId) ?? 0) + 1);
+  }
+
+  // Group subjects by name
+  const byName = new Map<string, { id: string; lectureCount: number }[]>();
+  for (const sDoc of subjectsSnap.docs) {
+    const name = (sDoc.data().name as string).trim().toLowerCase();
+    const entry = { id: sDoc.id, lectureCount: lectureCountBySubject.get(sDoc.id) ?? 0 };
+    byName.set(name, [...(byName.get(name) ?? []), entry]);
+  }
+
+  // For each name with duplicates, delete the ones with 0 lectures
+  const batch = writeBatch(db);
+  let deleteCount = 0;
+  for (const [, entries] of byName) {
+    if (entries.length <= 1) continue; // No duplicates
+    // Sort: keep the one with most lectures
+    entries.sort((a, b) => b.lectureCount - a.lectureCount);
+    // Delete all except the first (the one with most lectures)
+    for (let i = 1; i < entries.length; i++) {
+      if (entries[i].lectureCount === 0) {
+        batch.delete(doc(db, "users", userId, "subjects", entries[i].id));
+        deleteCount++;
+      }
+    }
+  }
+
+  if (deleteCount > 0) {
+    await batch.commit();
+  }
+  return deleteCount;
 }
 
 /**

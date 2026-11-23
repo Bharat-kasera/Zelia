@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { useAuth } from "@/hooks/useAuth";
 import { useSubjects } from "@/hooks/useSubjects";
-import { seedSubjects, batchUpdateSubjectOrder } from "@/lib/firestore";
+import { seedSubjects, batchUpdateSubjectOrder, cleanupDuplicateSubjects } from "@/lib/firestore";
 import { Navbar } from "@/components/Navbar";
 import { SubjectCard } from "@/components/SubjectCard";
 import { AddSubjectDialog } from "@/components/AddSubjectDialog";
@@ -40,7 +40,10 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user && !seededRef.current) {
       seededRef.current = true;
-      seedSubjects(user.uid).catch(console.error);
+      // Seed only for brand-new users, then clean up any existing duplicates
+      seedSubjects(user.uid)
+        .then(() => cleanupDuplicateSubjects(user.uid))
+        .catch(console.error);
     }
   }, [user]);
 
